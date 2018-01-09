@@ -63,7 +63,7 @@ def quaternion_matrix(quaternion):
         [    q[1, 3]-q[2, 0],     q[2, 3]+q[1, 0], 1.0-q[1, 1]-q[2, 2], 0.0],
         [                0.0,                 0.0,                 0.0, 1.0]])
         
-
+        
 def FK_Matrix2(J):
   R01 = rotz(J[0])
   R12 = roty(J[1])
@@ -76,7 +76,7 @@ def FK_Matrix2(J):
   p23 = np.array([0,0,1.075]).reshape(3,1)
   p34 = np.array([1.392,0,0.2]).reshape(3,1)
   p6T = np.array([0.15,0, -0.1]).reshape(3,1)
-  p0T = np.dot(R01,p12) + np.dot(R01, np.dot(R12,p23)) + np.dot(R01, np.dot(R12,np.dot(R23,p34))) + np.dot(R06,p6T) + np.array([0.13,0, -0.40]).reshape(3,1)
+  p0T = np.dot(R01,p12) + np.dot(R01, np.dot(R12,p23)) + np.dot(R01, np.dot(R12,np.dot(R23,p34))) + np.dot(R06,p6T) + np.array([0.13,0, -0.1]).reshape(3,1)
   return np.dot(translation_matrix(p0T.flatten().tolist()[0]), np.r_[np.c_[R06,[0,0,0]],np.array([0,0,0,1]).reshape(1,4)].tolist())
 
 
@@ -104,8 +104,8 @@ class CollisionChecker:
     #names = ['robot', 'Walls']
     #urdfs = ['irb6640', 'Walls_or']
     
-    names = ['irb6640_185_280_Testbed', 'Walls']
-    urdfs = ['irb6640_185_280_or', 'Walls_or']
+    names = ['irb6640_185_280_Testbed', 'Walls', 'box', 'ball']
+    urdfs = ['irb6640_185_280_or', 'Walls_or', 'box', 'ball']
     
     model_urdf = {}
     for name, urdf in zip(names, urdfs):
@@ -118,7 +118,7 @@ class CollisionChecker:
           body = RaveCreateKinBody(self.env, '')
           body.SetName(name)
           #body.SetName(urdf)
-          body.InitFromBoxes(np.array([[0, 0, 0, 0.1, 0.1, 0.1]]), True) #0.6096, 0.01524, 0.3048
+          body.InitFromBoxes(np.array([[0, 0, 0, 1, 0.025, 1]]), True) #0.6096, 0.01524, 0.3048
           
         elif urdf == 'ball':
           body = RaveCreateKinBody(self.env, '')
@@ -173,9 +173,6 @@ class CollisionChecker:
     # Check collisions
     report = CollisionReport()
     
-    """ """
-    report_2 = CollisionReport()
-    
     ClosestPosition = [0,0]
     ContactCnt = 0
     minDistance = np.infty
@@ -192,6 +189,8 @@ class CollisionChecker:
             ClosestPosition = report.contacts[0].pos
             
             """ """
+            # OpenRave only reports the closest point in the poi, to get the closest point
+            # in the environment (bkg), exchange poi and bkg
             self.env.CheckCollision(link1=self.bodies[bkg], link2=self.bodies[poi], report=report)
             # closest point in the environment
             ClosestPosition_env = report.contacts[0].pos
