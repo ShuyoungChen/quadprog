@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from oct2py import octave
-from oct2py import Oct2Py
+#from oct2py import octave
 import numpy as np
 from numpy.linalg import inv
 from scipy.linalg import logm, norm, sqrtm
@@ -10,6 +9,7 @@ from ControlParams import *
 from OpenRAVE_rr_server import *
 import rpi_abb_irc5
 import time
+import timeit
 from pyquaternion import Quaternion
 from cvxopt import matrix, solvers
 
@@ -172,15 +172,14 @@ def getJacobian2(q,ttype,H,P,n,Closest_Pt,J2C_Joint):
 
 def quat2axang(q):
     # convert a unit quaternion to angle/axis representation
-    s = norm(q[1:4])
+    s = norm(q[0][1:4])
     if s >= 10*np.finfo(np.float32).eps:
-        vector = q[2:4]/s
-        theta = 2*np.arctan2(s,q[0])
+        vector = q[0][1:4]/s
+        theta = 2*np.arctan2(s,q[0][0])
     else:
         vector = np.array([0,0,1])
         theta = 0
     axang = np.hstack((vector,theta))
-    
     return axang
 
 def getqp_H(dq, J, vr, vp, er, ep):
@@ -214,6 +213,15 @@ def inequality_bound(h,c,eta,epsilon,e):
     sigma[np.array(h < 0)] = e
     return sigma
 
+# quaternion multiply
+def quatmultiply(q1, q0):
+    w0, x0, y0, z0 = q0[0][0], q0[0][1], q0[0][2], q0[0][3]
+    w1, x1, y1, z1 = q1[0][0], q1[0][1], q1[0][2], q1[0][3]
+    return np.array([-x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,
+                     x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
+                     -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
+                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=np.float64)[None, :]
+                     
 
 def main():
     # Add .m files to path
@@ -274,7 +282,7 @@ def main():
     # keyboard controls
     # define position and angle step
     inc_pos_v = 0.01 # m/s
-    inc_ang_v = 0.2*np.pi/180 # rad/s
+    inc_ang_v = 1*np.pi/180 # rad/s
 
     # optimization params
     er = 0.05
@@ -301,13 +309,12 @@ def main():
         for event in pygame.event.get():
             pass
 
-
         if counter != 0:
-            dt = octave.toc(t_start)
+            toc = timeit.default_timer()
+            dt = toc - tic
+            
+        tic = timeit.default_timer()
 
-        """ """
-        #print dt
-        t_start = octave.tic()
         counter = counter + 1
 
 
@@ -356,8 +363,10 @@ def main():
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             
             #axang = octave.feval('quat2axang', obj.params['controls']['ang_v'])
+
             axang = quat2axang(obj.params['controls']['ang_v'])
 
+            # desired rotational velocity
             vr = axang[3]*axang[0:3]
             
             H = getqp_H(obj.params['controls']['dq'], J_eef, vr[:, None], obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
@@ -429,10 +438,9 @@ def main():
             #options = octave.optimset('Display', 'off')
             #dq_sln = octave.quadprog(H,f,A,b,A_eq,b_eq,LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
             
-            """
-            It seems that the cvxot quadprog solver has strange solution when close to obstacles, jump between plus and minus.
-            """
-            sol = solvers.qp(H,f,A,b,A_eq,b_eq)
+            """ """
+            #sol = solvers.qp(H,f,A,b,A_eq,b_eq)
+            sol = solvers.qp(H,f,A,b)
             dq_sln = sol['x']
             
             # update joint velocities
@@ -447,17 +455,20 @@ def main():
                 V_scaled = dq_sln[-1]*V_desired
                 #V_scaled = np.asscalar(dq_sln[-1])*V_desired
          
-            V_now = np.dot(J_eef[3:6,:], obj.params['controls']['dq'])
-            """
-            print V_desired
-            """
+            V_linear = np.dot(J_eef[3:6,:], obj.params['controls']['dq'])
+            V_rot = np.dot(J_eef[0:3,:], obj.params['controls']['dq'])
+            #V_now[V_now <= 8e-4] = 0.0
+                           
             print '------------'
-            print V_scaled
+            #print V_scaled
+                       
+            print '------V_linear------'
+            print V_linear
             
-            print '------------'
-            print V_now
+            print '------V_rot------'
+            print V_rot
+           
             
-
             """
             if norm(V_now)>=1e-10 and norm(V_scaled)>=1e-10:
                 direrr =  1-abs(np.dot(V_now.T/norm(V_now),V_scaled/norm(V_scaled)))
@@ -477,11 +488,17 @@ def main():
         else:
             x = (abs(x) - .2) / .8 * cmp(x, 0)
 
+        # control of linear velocity
         b1 = joy.get_button(0)
         b2 = joy.get_button(1)
         b3 = joy.get_button(2)
 
-        button = [x, b1, b2, b3]
+        # control of angular velocity
+        b4 = joy.get_button(3)
+        b5 = joy.get_button(4)
+        b6 = joy.get_button(5)
+        
+        button = [x, b1, b2, b3, b4, b5, b6]
         func_xbox(button, obj)
         
         # Limit to 20 frames per second
@@ -491,6 +508,7 @@ def main():
 
     pygame.quit()
 
+
 def func_xbox(button, obj):
 
     if (button[1] == 1):
@@ -499,9 +517,15 @@ def func_xbox(button, obj):
         obj.params['controls']['pos_v'] = obj.params['controls']['pos_v'] + np.matrix([0,button[0]*obj.params['keyboard']['inc_pos_v'],0]).T
     if (button[3] == 1):
         obj.params['controls']['pos_v'] = obj.params['controls']['pos_v'] + np.matrix([0,0,button[0]*obj.params['keyboard']['inc_pos_v']]).T
-
-
-
+        
+    # wx, wy, wz    
+    if (button[4] == 1):
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0, 0])[None, :], obj.params['controls']['ang_v'])
+    if (button[5] == 1):
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0])[None, :], obj.params['controls']['ang_v'])
+    if (button[6] == 1):
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2)])[None, :], obj.params['controls']['ang_v'])
+        
 
 
 if __name__ == '__main__':

@@ -96,16 +96,14 @@ class CollisionChecker:
     self.bodies = {}
     self.joints = {}
     
-    #urdf_folder = rospkg.RosPack().get_path('abb_irb6640_support')+'/urdf/'
     urdf_folder = '/home/Shuyang/catkin_ws/src/irb6640/irb6640_description/urdf/'
     
-    #names = ['irb6640_185_280_Testbed', 'ball']
-    #urdfs = ['irb6640_185_280_or', 'ball']
-    #names = ['robot', 'Walls']
-    #urdfs = ['irb6640', 'Walls_or']
+    names = ['irb6640_185_280_Testbed', 'Walls']
+    urdfs = ['irb6640_185_280_or', 'Walls_or']
     
-    names = ['irb6640_185_280_Testbed', 'Walls', 'box', 'ball']
-    urdfs = ['irb6640_185_280_or', 'Walls_or', 'box', 'ball']
+    """ """
+    #names = ['irb6640_185_280_Testbed', 'Walls', 'box']
+    #urdfs = ['irb6640_185_280_or', 'Walls_or', 'box']
     
     model_urdf = {}
     for name, urdf in zip(names, urdfs):
@@ -118,7 +116,7 @@ class CollisionChecker:
           body = RaveCreateKinBody(self.env, '')
           body.SetName(name)
           #body.SetName(urdf)
-          body.InitFromBoxes(np.array([[0, 0, 0, 1, 0.025, 1]]), True) #0.6096, 0.01524, 0.3048
+          body.InitFromBoxes(np.array([[0, 0, 0, 1.0, 0.025, 1.0]]), True) #0.6096, 0.01524, 0.3048
           
         elif urdf == 'ball':
           body = RaveCreateKinBody(self.env, '')
@@ -152,7 +150,7 @@ class CollisionChecker:
   def check_safety(self, collision_poi, collision_env, joints=[]):
 
     # Find out background objects
-    background = [ x for x in collision_env if x not in collision_poi ]
+    background = [x for x in collision_env if x not in collision_poi]
 
     # Update background transforms
     for bkg in background:

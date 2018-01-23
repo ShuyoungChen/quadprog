@@ -24,6 +24,8 @@ class OpenRAVEObject(object):
 	def CollisionInit(self):
 	     with self._lock:
 	         self.cc = CollisionChecker(gui=True)
+	         
+	         # robot base
 	         robot_pose = [0,0,0,1,0,0,0]
              self.T1 = np.dot(translation_matrix(robot_pose[0:3]), quaternion_matrix(robot_pose[3:7]))
              
@@ -32,21 +34,28 @@ class OpenRAVEObject(object):
              self.T2 = np.dot(translation_matrix([0,0,0]), quaternion_matrix([1,0,0,0]))
              
              # ball
-             self.T4 = np.dot(translation_matrix([2.2,0,1.2]), quaternion_matrix([0,0,0,1]))
+             #self.T4 = np.dot(translation_matrix([2.2,0,1.2]), quaternion_matrix([0,0,0,1]))
+             
+             # box2
+             #self.T4 = np.dot(translation_matrix([2.0,0,1.3]), quaternion_matrix([0.707, 0.707, 0, 0]))
 	     
 	     
 	def CollisionReport(self,q1,q2,q3,q4,q5,q6):        
              tmp_array = (q1,q2,q3,q4,q5,q6)
              
+             #T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0, 0, 0.707]))
              T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0.707, 0, 0]))
              
              joints = {'irb6640_185_280_Testbed' : tmp_array}
             
-             collision_poi = {'irb6640_185_280_Testbed': self.T1, 'box' : T3}
+             """ """
+             collision_poi = {'irb6640_185_280_Testbed': self.T1}
+             #collision_poi = {'irb6640_185_280_Testbed': self.T1, 'box' : T3}
              #collision_env = { 'Walls'   : self.T2, 'box' : T3 }
              
              """ """
-             collision_env = {'Walls': self.T2, 'ball': self.T4}
+             #collision_env = {'Walls': self.T2, 'box2': self.T4}
+             collision_env = {'Walls': self.T2}
              
              tmp_result = self.cc.check_safety(collision_poi, collision_env, joints)
              
