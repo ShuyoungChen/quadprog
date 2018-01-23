@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#from oct2py import octave
+from oct2py import octave
 import numpy as np
 from numpy.linalg import inv
 from scipy.linalg import logm, norm, sqrtm
@@ -30,6 +30,7 @@ def robotParams():
     q = np.zeros((6, 1))
     H = np.array([h1, h2, h3, h4, h5, h6]).T
     ttype = np.zeros((1, 6))
+    """ """
     n = 6
     dq_bounds = np.array([[100,110], [90,90], [90,90], [170,190], [120,140], [190,235]]).T
     dq_bounds = dq_bounds*np.pi/180
@@ -83,7 +84,7 @@ def fwdkin_alljoints(q, ttype, H, P, n):
     p=np.zeros((3,1))
     RR = np.zeros((3,3,n+1))
     pp = np.zeros((3,n+1))
-    
+
     for i in range(n):
         h_i = H[:,i] 
          
@@ -333,7 +334,8 @@ def main():
 
             [pp,RR]=fwdkin_alljoints(obj.params['controls']['q'],ttype,H,P,n)
             #[pp,RR] = octave.feval('robot_3d', obj.params['controls']['q'], nout=2)
-
+            
+            """
             # pseudo obstacles
             x1 = 1.2
             y1 = 0
@@ -341,7 +343,7 @@ def main():
             radius = 0.2
             #octave.figure()
             #octave.feval('dispObstacles', 'sphere', radius,0,  x1, y1, z1, [0.8, 0.8, 0.8])
-
+            """
 
             # parameters for qp
             obj.params['controls']['pos'] = pp[:, -1]
@@ -377,10 +379,14 @@ def main():
 
             # equality constraints
             A_eq = np.hstack((J_eef[0:3,:], np.zeros((3, 2))))
+            
             w_skew = logm(np.dot(RR[:,:,-1],R_des.T))
+            
             w = np.array([w_skew[2, 1], w_skew[0, 2], w_skew[1, 0]])
+
             b_eq = np.transpose(-Ke*w)
 
+            
             # inequality constrains A and b
             h[0:6] = obj.params['controls']['q'] - lower_limit[:, None]
             h[6:12] = upper_limit[:, None] - obj.params['controls']['q']
@@ -402,7 +408,7 @@ def main():
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.1
+            h[12] = dist - 0.15
             
             dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
             
@@ -434,12 +440,14 @@ def main():
            
             A_eq = matrix(A_eq, tc  = 'd')
             b_eq = matrix(b_eq, (3, 1))
+
             # quadratic programming
             #options = octave.optimset('Display', 'off')
             #dq_sln = octave.quadprog(H,f,A,b,A_eq,b_eq,LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
             
             """ """
-            #sol = solvers.qp(H,f,A,b,A_eq,b_eq)
+            #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
+            #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
             sol = solvers.qp(H,f,A,b)
             dq_sln = sol['x']
             
@@ -504,8 +512,6 @@ def main():
         # Limit to 20 frames per second
         #clock.tick(20)
 
-
-
     pygame.quit()
 
 
@@ -518,13 +524,15 @@ def func_xbox(button, obj):
     if (button[3] == 1):
         obj.params['controls']['pos_v'] = obj.params['controls']['pos_v'] + np.matrix([0,0,button[0]*obj.params['keyboard']['inc_pos_v']]).T
         
-    # wx, wy, wz    
+    # wx, wy, wz 
+      
     if (button[4] == 1):
         obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0, 0])[None, :], obj.params['controls']['ang_v'])
     if (button[5] == 1):
         obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0])[None, :], obj.params['controls']['ang_v'])
     if (button[6] == 1):
         obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2)])[None, :], obj.params['controls']['ang_v'])
+    
         
 
 

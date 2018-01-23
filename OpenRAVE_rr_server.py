@@ -44,7 +44,7 @@ class OpenRAVEObject(object):
              tmp_array = (q1,q2,q3,q4,q5,q6)
              
              #T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0, 0, 0.707]))
-             T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0.707, 0, 0]))
+             #T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0.707, 0, 0]))
              
              joints = {'irb6640_185_280_Testbed' : tmp_array}
             
