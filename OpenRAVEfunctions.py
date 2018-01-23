@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Dec  4 12:16:39 2017
-
-@author: yc
-"""
 
 #! /usr/bin/env python
 import numpy as np
@@ -72,11 +67,18 @@ def FK_Matrix2(J):
   R45 = roty(J[4])
   R56 = rotx(J[5])
   R06 = np.dot(R01, np.dot(R12, np.dot(R23, np.dot(R34, np.dot(R45,R56)))))
+  p01 = np.array([0,0,0]).reshape(3,1)
   p12 = np.array([0.32,0,0.78]).reshape(3,1)
   p23 = np.array([0,0,1.075]).reshape(3,1)
-  p34 = np.array([1.392,0,0.2]).reshape(3,1)
-  p6T = np.array([0.15,0, -0.1]).reshape(3,1)
-  p0T = np.dot(R01,p12) + np.dot(R01, np.dot(R12,p23)) + np.dot(R01, np.dot(R12,np.dot(R23,p34))) + np.dot(R06,p6T) + np.array([0.13,0, -0.1]).reshape(3,1)
+  p34 = np.array([0,0,0.2]).reshape(3,1)
+  p45 = np.array([1.392,0,0]).reshape(3,1)
+  p56 = np.array([0.2,0,0]).reshape(3,1)
+  p6T = np.array([0.15,0, 0]).reshape(3,1)
+  
+  """ """
+  #p0T = np.dot(R01,p12) + np.dot(R01, np.dot(R12,p23)) + np.dot(R01, np.dot(R12,np.dot(R23,p34))) + np.dot(R06,p6T) + np.array([0.13,0, -0.1]).reshape(3,1)
+  p0T = p01 + np.dot(R01,p12) + np.dot(R01, np.dot(R12,p23)) + np.dot(R01, np.dot(R12,np.dot(R23,p34))) + np.dot(R01, np.dot(R12, np.dot(R23,np.dot(R34,p45)))) + np.dot(R01, np.dot(R12, np.dot(R23,np.dot(R34,np.dot(R45, p56))))) + np.dot(R06, p6T)
+  #np.dot(R06,p6T) + np.array([0,0, -0.43]).reshape(3,1)
   return np.dot(translation_matrix(p0T.flatten().tolist()[0]), np.r_[np.c_[R06,[0,0,0]],np.array([0,0,0,1]).reshape(1,4)].tolist())
 
 
@@ -185,7 +187,7 @@ class CollisionChecker:
           elif minDistance > report.minDistance:
             minDistance = report.minDistance
             ClosestPosition = report.contacts[0].pos
-            
+
             """ """
             # OpenRave only reports the closest point in the poi, to get the closest point
             # in the environment (bkg), exchange poi and bkg

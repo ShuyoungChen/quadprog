@@ -45,22 +45,22 @@ def fwdkin(q,ttype,H,P,n):
         Ri=np.eye(3)
         if ttype[0][i] == 0: 
             #rev
-            pi = P[:,i][:, None]
+            pi = P[:,i].reshape(3, 1)
             p = p+np.dot(R, pi)
             Ri = rot(h_i,q[i])
             R = np.dot(R, Ri)
             R = Closest_Rotation(R)
         elif ttype[i] == 1: 
             #pris
-            pi = (P[:,i]+q[i]*h_i)[:, None]
+            pi = (P[:,i]+q[i]*h_i).reshape(3, 1)
             p = p+np.dot(R, pi)
         else: 
 	        #default pris
-	        pi = (P[:,i]+q[i]*h_i)[:, None]
+	        pi = (P[:,i]+q[i]*h_i).reshape(3, 1)
 	        p = p+np.dot(R, pi)
   
     #End Effector T
-    p=p+np.dot(R, P[0:3,n][:, None])
+    p=p+np.dot(R, P[0:3,n].reshape(3, 1))
     return R, p
     
 # find closest rotation matrix 
@@ -90,25 +90,25 @@ def fwdkin_alljoints(q, ttype, H, P, n):
          
         if ttype[0][i] == 0:
         #rev
-            pi = P[:,i][:, None]
+            pi = P[:,i].reshape(3, 1)
             p = p+np.dot(R,pi)
             Ri = rot(h_i,q[i])
             R = np.dot(R,Ri)
             R = Closest_Rotation(R)
         elif ttype[i] == 1: 
         #pris
-            pi = (P[:,i]+q[i]*h_i)[:, None]
+            pi = (P[:,i]+q[i]*h_i).reshape(3, 1)
             p = p+np.dot(R,pi)
         else: 
 	    # default pris
-	        pi = (P[:,i]+q[i]*h_i)[:, None]
+	        pi = (P[:,i]+q[i]*h_i).reshape(3, 1)
 	        p = p+np.dot(R,pi)
  
         pp[:,i] = p.ravel()
         RR[:,:,i] = R
     
     # end effector T
-    p=p+np.dot(R, P[0:3,n][:, None])
+    p=p+np.dot(R, P[0:3,n].reshape(3, 1))
     pp[:,n] = p.ravel()
     RR[:,:,n] = R
     
@@ -138,16 +138,40 @@ def getJacobian(q,ttype,H,P,n):
 
 
     P_0_i,R_0_i=fwdkin_alljoints(q,ttype,H,P,n)
-
+    
     P_0_T = P_0_i[:,num_joints]
 
     J = np.zeros((6,num_joints))
-
+    
     for i in range(num_joints):
         if ttype[0][i] == 0:
             J[:,i] = np.hstack((np.dot(R_0_i[:,:,i],H[:,i]), np.dot(hat(np.dot(R_0_i[:,:,i], H[:,i])), (P_0_T - P_0_i[:,i]))))
+    """ """
     
     return J
+
+""" """
+def getJacobian3(q,ttype,H,P,n, Closest_Pt):
+    num_joints = len(q)
+
+    P_0_i = np.zeros((3,num_joints+1))
+    R_0_i = np.zeros((3,3,num_joints+1))
+
+
+    P_0_i,R_0_i=fwdkin_alljoints(q,ttype,H,P,n)
+    """  """
+    
+    P_0_T = Closest_Pt
+
+    J = np.zeros((6,num_joints))
+    
+    for i in range(num_joints):
+        if ttype[0][i] == 0:
+            J[:,i] = np.hstack((np.dot(R_0_i[:,:,i],H[:,i]), np.dot(hat(np.dot(R_0_i[:,:,i], H[:,i])), (P_0_T - P_0_i[:,i]))))
+    """ """
+    
+    return J
+    
     
 def getJacobian2(q,ttype,H,P,n,Closest_Pt,J2C_Joint):
 
@@ -201,7 +225,7 @@ def getqp_H(dq, J, vr, vp, er, ep):
     return H
 
 def getqp_f(dq, er, ep):
-    f = -2*np.array([0,0,0,0,0,0,er,ep])[:, None]
+    f = -2*np.array([0,0,0,0,0,0,er,ep]).reshape(8, 1)
 
     return f
 
@@ -218,10 +242,11 @@ def inequality_bound(h,c,eta,epsilon,e):
 def quatmultiply(q1, q0):
     w0, x0, y0, z0 = q0[0][0], q0[0][1], q0[0][2], q0[0][3]
     w1, x1, y1, z1 = q1[0][0], q1[0][1], q1[0][2], q1[0][3]
+    
     return np.array([-x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,
                      x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
                      -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
-                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=np.float64)[None, :]
+                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=np.float64).reshape(1, 4)
                      
 
 def main():
@@ -246,13 +271,14 @@ def main():
 
 # Initialize Control Parameters
 # initial joint angles
+    
     q = np.zeros((6, 1))
     #[R,pos] = octave.feval('fwdkin', q,ttype,H,P,n, nout=2)
     
     R,pos = fwdkin(q,ttype,H,P,n)
  
     orien = Quaternion(matrix=R)
-    orien = np.array([orien[0], orien[1], orien[2], orien[3]])[None, :]
+    orien = np.array([orien[0], orien[1], orien[2], orien[3]]).reshape(1, 4)
     #orien = octave.feval('R2q', R).T
 
     pos_v = np.zeros((3, 1))
@@ -293,13 +319,13 @@ def main():
     # parameters for inequality constraints
     c = 0.5
     eta = 0.1
-    epsilon_in = 0.15
-    E = 0.001
+    epsilon_in = 0.1
+    E = 0.01
     
     Ke = 1
     
     # create a handle of these parameters for interactive modifications
-    obj = ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v[None, :],w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,0,er,ep,0)
+    obj = ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v.reshape(1, 4),w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,0,er,ep,0)
 
     dt = 0
     counter = 0
@@ -347,22 +373,24 @@ def main():
 
             # parameters for qp
             obj.params['controls']['pos'] = pp[:, -1]
-            
+
             orien_tmp = Quaternion(matrix=RR[:, :, -1])
-            obj.params['controls']['orien'] = np.array([orien_tmp[0], orien_tmp[1], orien_tmp[2], orien_tmp[3]])[None, :]
+            obj.params['controls']['orien'] = np.array([orien_tmp[0], orien_tmp[1], orien_tmp[2], orien_tmp[3]]).reshape(1, 4)
             #obj.params['controls']['orien'] = octave.feval('R2q', RR[:, :, -1]).T
             
             """ """
             Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
             #octave.feval('dispObstacles', 'sphere', 0.05,0, Closest_Pt[0], Closest_Pt[1], Closest_Pt[2], [1,0,0])
-            
+            #print Closest_Pt, Closest_Pt_env
             J2C_Joint = Joint2Collision(Closest_Pt, pp)
-            
+            #print J2C_Joint
             #J2C_Joint = octave.feval('Joint2Collision', Closest_Pt[:, None], pp)
             #[J,p_0_tmp] = octave.feval('getJacobian2', obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt[:, None],J2C_Joint, nout=2)
             #J_eef = octave.feval('getJacobian', obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
+            
+            J_eef2 = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt)
             
             #axang = octave.feval('quat2axang', obj.params['controls']['ang_v'])
 
@@ -371,7 +399,7 @@ def main():
             # desired rotational velocity
             vr = axang[3]*axang[0:3]
             
-            H = getqp_H(obj.params['controls']['dq'], J_eef, vr[:, None], obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
+            H = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
             #H = octave.feval('getqp_H', obj.params['controls']['dq'], J_eef, vr[:, None], obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep'])
             
             #f = octave.feval('getqp_f', obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
@@ -386,10 +414,9 @@ def main():
 
             b_eq = np.transpose(-Ke*w)
 
-            
             # inequality constrains A and b
-            h[0:6] = obj.params['controls']['q'] - lower_limit[:, None]
-            h[6:12] = upper_limit[:, None] - obj.params['controls']['q']
+            h[0:6] = obj.params['controls']['q'] - lower_limit.reshape(6, 1)
+            h[6:12] = upper_limit.reshape(6, 1) - obj.params['controls']['q']
             
             """ """
             #dx = x1 - Closest_Pt[0]
@@ -403,14 +430,15 @@ def main():
             """ """
             dist = np.sqrt(dx**2 + dy**2 + dz**2)
             #dist = np.sqrt(dx**2 + dy**2 + dz**2) - radius
-            
+            #print dist
             # derivative of dist w.r.t time
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.15
-            
-            dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
+            h[12] = dist - 0.2
+            """ """ """ """
+            dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
+            #dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
             
             #sigma[0:12] = octave.feval('inequality_bound', h[0:12], c, eta, epsilon_in, E)
             sigma[0:12] =inequality_bound(h[0:12], c, eta, epsilon_in, E)
@@ -425,9 +453,10 @@ def main():
                 bound = obj.params['defi']['dq_bounds'][1, :]
             else:
                 bound = obj.params['defi']['dq_bounds'][0, :]
+            print bound.shape
 
-            LB = np.vstack((-0.1*bound[:, None],0,0))
-            UB = np.vstack((0.1*bound[:, None],1,1))
+            LB = np.vstack((-0.1*bound.reshape(6, 1),0,0))
+            UB = np.vstack((0.1*bound.reshape(6, 1),1,1))
             LB = matrix(LB, tc = 'd')
             UB = matrix(UB, tc = 'd')
             
@@ -443,9 +472,15 @@ def main():
 
             # quadratic programming
             #options = octave.optimset('Display', 'off')
+            
+            #dq_sln = octave.quadprog(H,f,A,b,np.empty([3, 8]),np.empty([3, 1]),LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
             #dq_sln = octave.quadprog(H,f,A,b,A_eq,b_eq,LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
             
             """ """
+            solvers.options['show_progress'] = False
+            #solvers.options['maxiters'] = 500
+            #solvers.options['abstol'] = 1e-5
+            #solvers.options['feastol'] = 1e-5
             #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
             #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
             sol = solvers.qp(H,f,A,b)
@@ -460,20 +495,23 @@ def main():
                 print 'No Solution'
             else:
                 obj.params['controls']['dq'] = dq_sln[0: int(obj.params['defi']['n'])]
-                V_scaled = dq_sln[-1]*V_desired
                 #V_scaled = np.asscalar(dq_sln[-1])*V_desired
+                V_scaled = dq_sln[-1]*V_desired
          
             V_linear = np.dot(J_eef[3:6,:], obj.params['controls']['dq'])
             V_rot = np.dot(J_eef[0:3,:], obj.params['controls']['dq'])
             #V_now[V_now <= 8e-4] = 0.0
                            
-            print '------------'
-            #print V_scaled
+            print '------Desired linear velocity------'
+            print V_scaled
                        
-            print '------V_linear------'
+            print '------Real linear velocity by solving quadratic programming------'
             print V_linear
             
-            print '------V_rot------'
+            print '------Desired angular velocity------'
+            print vr.reshape(3,1)
+            
+            print '------Real angular velocity by solving quadratic programming------'
             print V_rot
            
             
@@ -527,11 +565,11 @@ def func_xbox(button, obj):
     # wx, wy, wz 
       
     if (button[4] == 1):
-        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0, 0])[None, :], obj.params['controls']['ang_v'])
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0, 0]).reshape(1, 4), obj.params['controls']['ang_v'])
     if (button[5] == 1):
-        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0])[None, :], obj.params['controls']['ang_v'])
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0]).reshape(1, 4), obj.params['controls']['ang_v'])
     if (button[6] == 1):
-        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2)])[None, :], obj.params['controls']['ang_v'])
+        obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2)]).reshape(1, 4), obj.params['controls']['ang_v'])
     
         
 

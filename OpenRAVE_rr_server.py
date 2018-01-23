@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Dec  4 12:13:50 2017
-
-@author: yc
-"""
-
+from main import *
 import time
 import thread
 import threading
@@ -43,7 +38,7 @@ class OpenRAVEObject(object):
 	def CollisionReport(self,q1,q2,q3,q4,q5,q6):        
              tmp_array = (q1,q2,q3,q4,q5,q6)
              
-             #T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0, 0, 0.707]))
+             T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0, 0, 0.707]))
              #T3 = np.dot(FK_Matrix2(tmp_array), quaternion_matrix([0.707, 0.707, 0, 0]))
              
              joints = {'irb6640_185_280_Testbed' : tmp_array}
