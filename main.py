@@ -272,7 +272,9 @@ def main():
 # Initialize Control Parameters
 # initial joint angles
     
-    q = np.zeros((6, 1))
+    """ """
+    #q = np.zeros((6, 1))
+    q = np.array([0,0,0,0,np.pi/2,0]).reshape(6, 1)
     #[R,pos] = octave.feval('fwdkin', q,ttype,H,P,n, nout=2)
     
     R,pos = fwdkin(q,ttype,H,P,n)
@@ -309,7 +311,7 @@ def main():
     # keyboard controls
     # define position and angle step
     inc_pos_v = 0.01 # m/s
-    inc_ang_v = 1*np.pi/180 # rad/s
+    inc_ang_v = 0.5*np.pi/180 # rad/s
 
     # optimization params
     er = 0.05
@@ -435,7 +437,7 @@ def main():
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.2
+            h[12] = dist - 0.02
             """ """ """ """
             dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
             #dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
@@ -453,7 +455,6 @@ def main():
                 bound = obj.params['defi']['dq_bounds'][1, :]
             else:
                 bound = obj.params['defi']['dq_bounds'][0, :]
-            print bound.shape
 
             LB = np.vstack((-0.1*bound.reshape(6, 1),0,0))
             UB = np.vstack((0.1*bound.reshape(6, 1),1,1))
@@ -481,7 +482,7 @@ def main():
             #solvers.options['maxiters'] = 500
             #solvers.options['abstol'] = 1e-5
             #solvers.options['feastol'] = 1e-5
-            #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
+
             #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
             sol = solvers.qp(H,f,A,b)
             dq_sln = sol['x']
@@ -544,6 +545,14 @@ def main():
         b5 = joy.get_button(4)
         b6 = joy.get_button(5)
         
+        # emergency stop
+        b7 = joy.get_button(8)
+        
+        if (b7 == 1):
+            print 'robot stopped'
+            obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
+            obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
+      
         button = [x, b1, b2, b3, b4, b5, b6]
         func_xbox(button, obj)
         
