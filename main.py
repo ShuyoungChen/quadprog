@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from oct2py import octave
 import numpy as np
 from numpy.linalg import inv
 from scipy.linalg import logm, norm, sqrtm
@@ -71,8 +70,8 @@ def Closest_Rotation(R):
     
     return R_n
 
+# ROT Rotate along an axis h by q in radius
 def rot(h, q):
-    # ROT Rotate along an axis h by q in radius.
     h=h/norm(h)
     R = np.eye(3) + np.sin(q)*hat(h) + (1 - np.cos(q))*hat(h)**2
     
@@ -256,9 +255,6 @@ def quatmultiply(q1, q0):
                      
 
 def main():
-    # Add .m files to path
-    #octave.addpath('/home/Shuyang/Downloads/update/Velocity_Control_Constrained_ABB_OpenRAVE')
-
     #Init the joystick
     pygame.init()
     pygame.joystick.init()
@@ -269,10 +265,8 @@ def main():
     egm=rpi_abb_irc5.EGM()
 
     OpenRAVE_obj = OpenRAVEObject()
-# Initialize Robot Parameters
-    
-    #[ex,ey,ez,n,P,q_nouse,H,ttype,dq_bounds] = octave.feval('robotParams', nout=9)
-    
+
+# Initialize Robot Parameters    
     ex,ey,ez,n,P,q_ver,H,ttype,dq_bounds = robotParams()
 
 # Initialize Control Parameters
@@ -281,20 +275,16 @@ def main():
     """ """
     #q = np.zeros((6, 1))
     q = np.array([0,0,0,0,np.pi/2,0]).reshape(6, 1)
-    #[R,pos] = octave.feval('fwdkin', q,ttype,H,P,n, nout=2)
     
     R,pos = fwdkin(q,ttype,H,P,n)
  
     orien = Quaternion(matrix=R)
     orien = np.array([orien[0], orien[1], orien[2], orien[3]]).reshape(1, 4)
-    #orien = octave.feval('R2q', R).T
 
     pos_v = np.zeros((3, 1))
     ang_v = np.array([1,0,0,0])
     dq = np.zeros((int(n),1))
-    # desired eef orientation
-    #R_des = R
-    
+ 
     # joint limits
     lower_limit = np.transpose(np.array([-170*np.pi/180, -65*np.pi/180, -np.pi, -300*np.pi/180, -120*np.pi/180, -2*np.pi]))
     upper_limit = np.transpose(np.array([170*np.pi/180, 85*np.pi/180, 70*np.pi/180, 300*np.pi/180, 120*np.pi/180, 2*np.pi]))
@@ -357,8 +347,7 @@ def main():
             obj.params['controls']['q'] = obj.params['controls']['q'] + obj.params['controls']['dq']*dt*0.1
             
             res, state = egm.receive_from_robot(0.01)
-            #print res
-            #time.sleep(0.1)
+
             if res:
                 a = np.array(state.joint_angles)
                 a = a * 180 / np.pi
@@ -367,40 +356,22 @@ def main():
                 print "Target Joints: " + str([float(x)*180/np.pi for x in obj.params['controls']['q']])
 
             [pp,RR]=fwdkin_alljoints(obj.params['controls']['q'],ttype,H,P,n)
-            #[pp,RR] = octave.feval('robot_3d', obj.params['controls']['q'], nout=2)
-            
-            """
-            # pseudo obstacles
-            x1 = 1.2
-            y1 = 0
-            z1 = 1.2
-            radius = 0.2
-            #octave.figure()
-            #octave.feval('dispObstacles', 'sphere', radius,0,  x1, y1, z1, [0.8, 0.8, 0.8])
-            """
 
             # parameters for qp
             obj.params['controls']['pos'] = pp[:, -1]
 
             orien_tmp = Quaternion(matrix=RR[:, :, -1])
             obj.params['controls']['orien'] = np.array([orien_tmp[0], orien_tmp[1], orien_tmp[2], orien_tmp[3]]).reshape(1, 4)
-            #obj.params['controls']['orien'] = octave.feval('R2q', RR[:, :, -1]).T
             
             """ """
             Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
-            #octave.feval('dispObstacles', 'sphere', 0.05,0, Closest_Pt[0], Closest_Pt[1], Closest_Pt[2], [1,0,0])
-            #print Closest_Pt, Closest_Pt_env
+            
             J2C_Joint = Joint2Collision(Closest_Pt, pp)
-            #print J2C_Joint
-            #J2C_Joint = octave.feval('Joint2Collision', Closest_Pt[:, None], pp)
-            #[J,p_0_tmp] = octave.feval('getJacobian2', obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt[:, None],J2C_Joint, nout=2)
-            #J_eef = octave.feval('getJacobian', obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
+     
             J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             
             J_eef2 = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt)
-            
-            #axang = octave.feval('quat2axang', obj.params['controls']['ang_v'])
 
             axang = quat2axang(obj.params['controls']['ang_v'])
 
@@ -408,9 +379,6 @@ def main():
             vr = axang[3]*axang[0:3]
             
             H = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
-            #H = octave.feval('getqp_H', obj.params['controls']['dq'], J_eef, vr[:, None], obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep'])
-            
-            #f = octave.feval('getqp_f', obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             f = getqp_f(obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             
             H = matrix(H, tc='d')
@@ -426,16 +394,10 @@ def main():
             UB = np.vstack((0.1*bound.reshape(6, 1),1,1))
             LB = matrix(LB, tc = 'd')
             UB = matrix(UB, tc = 'd')
-         
-            
+                    
             # inequality constrains A and b
             h[0:6] = obj.params['controls']['q'] - lower_limit.reshape(6, 1)
             h[6:12] = upper_limit.reshape(6, 1) - obj.params['controls']['q']
-            
-            """ """
-            #dx = x1 - Closest_Pt[0]
-            #dy = y1 - Closest_Pt[1]
-            #dz = z1 - Closest_Pt[2]
             
             dx = Closest_Pt_env[0] - Closest_Pt[0]
             dy = Closest_Pt_env[1] - Closest_Pt[1]
@@ -443,8 +405,7 @@ def main():
             
             """ """
             dist = np.sqrt(dx**2 + dy**2 + dz**2)
-            #dist = np.sqrt(dx**2 + dy**2 + dz**2) - radius
-            #print dist
+            
             # derivative of dist w.r.t time
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
@@ -454,9 +415,7 @@ def main():
             dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
             #dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
             
-            #sigma[0:12] = octave.feval('inequality_bound', h[0:12], c, eta, epsilon_in, E)
             sigma[0:12] =inequality_bound(h[0:12], c, eta, epsilon_in, E)
-            #sigma[12] = octave.feval('inequality_bound', h[12], c, eta, epsilon_in, E)
             sigma[12] = inequality_bound(h[12], c, eta, epsilon_in, E)           
             
             A = -dhdq
@@ -475,7 +434,8 @@ def main():
             
             b7 = joy.get_button(6)
             b8 = joy.get_button(7)
-
+            
+            # set desired eef position and orientation
             if (b7 == 1 and b8 == 1):
                 x_des = pp[:, -1]
                 R_des = RR[:,:,-1]
@@ -533,12 +493,6 @@ def main():
             button = [x, b1, b2, b3, b4, b5, b6]
             func_xbox(button, obj)
         
-            # quadratic programming
-            #options = octave.optimset('Display', 'off')
-            
-            #dq_sln = octave.quadprog(H,f,A,b,np.empty([3, 8]),np.empty([3, 1]),LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
-            #dq_sln = octave.quadprog(H,f,A,b,A_eq,b_eq,LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
-            
             # update joint velocities
             V_desired = obj.params['controls']['pos_v']
             
@@ -548,12 +502,10 @@ def main():
                 print 'No Solution'
             else:
                 obj.params['controls']['dq'] = dq_sln[0: int(obj.params['defi']['n'])]
-                #V_scaled = np.asscalar(dq_sln[-1])*V_desired
                 V_scaled = dq_sln[-1]*V_desired
          
             V_linear = np.dot(J_eef[3:6,:], obj.params['controls']['dq'])
             V_rot = np.dot(J_eef[0:3,:], obj.params['controls']['dq'])
-            #V_now[V_now <= 8e-4] = 0.0
                            
             print '------Desired linear velocity------'
             print V_scaled
@@ -567,20 +519,6 @@ def main():
             print '------Real angular velocity by solving quadratic programming------'
             print V_rot
            
-            
-            """
-            if norm(V_now)>=1e-10 and norm(V_scaled)>=1e-10:
-                direrr =  1-abs(np.dot(V_now.T/norm(V_now),V_scaled/norm(V_scaled)))
-                if direrr<1-np.cos(1*np.pi/180):
-                    print 'following direction'
-                elif direrr<1-np.cos(5*np.pi/180):
-                    print 'following direction imprecisely, dir mismatch(degrees):' + repr(np.arccos((1-direrr)*np.pi/180))
-                else:
-                    print 'Wrong direction, dir mismatch(degrees):' + repr(np.arccos((1-direrr)*np.pi/180))
-            else:
-                print 'Zero Velocity Occurs'
-            """
-            
     pygame.quit()
 
 
@@ -593,8 +531,7 @@ def func_xbox(button, obj):
     if (button[3] == 1):
         obj.params['controls']['pos_v'] = obj.params['controls']['pos_v'] + np.matrix([0,0,button[0]*obj.params['keyboard']['inc_pos_v']]).T
         
-    # wx, wy, wz 
-      
+    # wx, wy, wz       
     if (button[4] == 1):
         obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2), 0, 0]).reshape(1, 4), obj.params['controls']['ang_v'])
     if (button[5] == 1):
