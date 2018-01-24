@@ -14,7 +14,6 @@ from pyquaternion import Quaternion
 from cvxopt import matrix, solvers
 
 def robotParams():
-    #function [ex,ey,ez,n,P,q,H,type,dq_bounds] = robotParams()
     I3 = np.eye(3)
     ex = I3[:,0]
     ey = I3[:,1]
@@ -34,6 +33,7 @@ def robotParams():
     n = 6
     dq_bounds = np.array([[100,110], [90,90], [90,90], [170,190], [120,140], [190,235]]).T
     dq_bounds = dq_bounds*np.pi/180
+    
     return ex,ey,ez,n,P,q,H,ttype,dq_bounds
 
 def fwdkin(q,ttype,H,P,n):
@@ -61,22 +61,26 @@ def fwdkin(q,ttype,H,P,n):
   
     #End Effector T
     p=p+np.dot(R, P[0:3,n].reshape(3, 1))
+    
     return R, p
     
 # find closest rotation matrix 
 # A=A*inv(sqrt(A'*A))   
 def Closest_Rotation(R):
     R_n = np.dot(R, inv(sqrtm(np.dot(R.T, R))))
+    
     return R_n
 
 def rot(h, q):
     # ROT Rotate along an axis h by q in radius.
     h=h/norm(h)
     R = np.eye(3) + np.sin(q)*hat(h) + (1 - np.cos(q))*hat(h)**2
+    
     return R
 
 def hat(h):
     h_hat = np.array([[0, -h[2], h[1]], [h[2], 0, -h[0]], [-h[1], h[0], 0]])
+    
     return h_hat
     
 def fwdkin_alljoints(q, ttype, H, P, n):
@@ -171,8 +175,7 @@ def getJacobian3(q,ttype,H,P,n, Closest_Pt):
     """ """
     
     return J
-    
-    
+        
 def getJacobian2(q,ttype,H,P,n,Closest_Pt,J2C_Joint):
 
     num_joints = len(q)
@@ -195,8 +198,9 @@ def getJacobian2(q,ttype,H,P,n,Closest_Pt,J2C_Joint):
     
     return J,P_0_tmp
 
+# convert a unit quaternion to angle/axis representation
 def quat2axang(q):
-    # convert a unit quaternion to angle/axis representation
+
     s = norm(q[0][1:4])
     if s >= 10*np.finfo(np.float32).eps:
         vector = q[0][1:4]/s
@@ -205,6 +209,7 @@ def quat2axang(q):
         vector = np.array([0,0,1])
         theta = 0
     axang = np.hstack((vector,theta))
+    
     return axang
 
 def getqp_H(dq, J, vr, vp, er, ep):
@@ -226,7 +231,7 @@ def getqp_H(dq, J, vr, vp, er, ep):
 
 def getqp_f(dq, er, ep):
     f = -2*np.array([0,0,0,0,0,0,er,ep]).reshape(8, 1)
-
+    
     return f
 
 def inequality_bound(h,c,eta,epsilon,e):
@@ -236,6 +241,7 @@ def inequality_bound(h,c,eta,epsilon,e):
     sigma[np.array(h2 >= 0) & np.array(h2 < epsilon)] = -np.tan(c*np.pi/2/epsilon*h2[np.array(h2 >= 0) & np.array(h2 < epsilon)])
     sigma[np.array(h >= 0) & np.array(h2 < 0)] = -e*h2[np.array(h >= 0) & np.array(h2 < 0)]/eta
     sigma[np.array(h < 0)] = e
+    
     return sigma
 
 # quaternion multiply
@@ -287,7 +293,7 @@ def main():
     ang_v = np.array([1,0,0,0])
     dq = np.zeros((int(n),1))
     # desired eef orientation
-    R_des = R
+    #R_des = R
     
     # joint limits
     lower_limit = np.transpose(np.array([-170*np.pi/180, -65*np.pi/180, -np.pi, -300*np.pi/180, -120*np.pi/180, -2*np.pi]))
@@ -406,16 +412,22 @@ def main():
             
             #f = octave.feval('getqp_f', obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             f = getqp_f(obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
-
-            # equality constraints
-            A_eq = np.hstack((J_eef[0:3,:], np.zeros((3, 2))))
             
-            w_skew = logm(np.dot(RR[:,:,-1],R_des.T))
+            H = matrix(H, tc='d')
+            f = matrix(f, tc='d')
             
-            w = np.array([w_skew[2, 1], w_skew[0, 2], w_skew[1, 0]])
+            # bounds for qp
+            if obj.params['opt']['upper_dq_bounds']:
+                bound = obj.params['defi']['dq_bounds'][1, :]
+            else:
+                bound = obj.params['defi']['dq_bounds'][0, :]
 
-            b_eq = np.transpose(-Ke*w)
-
+            LB = np.vstack((-0.1*bound.reshape(6, 1),0,0))
+            UB = np.vstack((0.1*bound.reshape(6, 1),1,1))
+            LB = matrix(LB, tc = 'd')
+            UB = matrix(UB, tc = 'd')
+         
+            
             # inequality constrains A and b
             h[0:6] = obj.params['controls']['q'] - lower_limit.reshape(6, 1)
             h[6:12] = upper_limit.reshape(6, 1) - obj.params['controls']['q']
@@ -437,7 +449,7 @@ def main():
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.02
+            h[12] = dist - 0.005
             """ """ """ """
             dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
             #dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
@@ -449,43 +461,83 @@ def main():
             
             A = -dhdq
             b = -sigma
-
-            # bounds for qp
-            if obj.params['opt']['upper_dq_bounds']:
-                bound = obj.params['defi']['dq_bounds'][1, :]
-            else:
-                bound = obj.params['defi']['dq_bounds'][0, :]
-
-            LB = np.vstack((-0.1*bound.reshape(6, 1),0,0))
-            UB = np.vstack((0.1*bound.reshape(6, 1),1,1))
-            LB = matrix(LB, tc = 'd')
-            UB = matrix(UB, tc = 'd')
             
-            H = matrix(H, tc='d')
-            f = matrix(f, tc='d')
-          
             A = matrix([matrix(A, tc='d'), matrix(np.eye(8), tc='d'), matrix(-np.eye(8), tc='d')])
            
             b = matrix([matrix(b, tc='d'), UB, -LB])
-           
-            A_eq = matrix(A_eq, tc  = 'd')
-            b_eq = matrix(b_eq, (3, 1))
+            
+            """ """
+            
+            solvers.options['show_progress'] = False
+            
+            sol = solvers.qp(H,f,A,b)
+            dq_sln = sol['x']
+            
+            b7 = joy.get_button(6)
+            b8 = joy.get_button(7)
 
+            if (b7 == 1 and b8 == 1):
+                x_des = pp[:, -1]
+                R_des = RR[:,:,-1]
+                print 'desired position set'
+                print 'desired position set'
+            
+            # equality constraints for maintaining end-effector position (pure rotation)    
+            if (b7 == 1):
+                print 'pure rotational movement'
+                A_eq_pos = np.hstack((J_eef[3:6,:], np.zeros((3, 2))))
+                b_eq_pos = 0.05*Ke*(x_des - pp[:, -1])
+                
+                A_eq_pos = matrix(A_eq_pos, tc  = 'd')
+                b_eq_pos = matrix(b_eq_pos, (3, 1))
+                
+                dq_sln = solvers.qp(H,f,A,b,A_eq_pos,b_eq_pos)['x']
+                
+            # equality constraints for maintaining end-effector orientation (pure translation)
+            if (b8 == 1):
+                print 'pure translational movement'
+                A_eq = np.hstack((J_eef[0:3,:], np.zeros((3, 2))))            
+                w_skew = logm(np.dot(RR[:,:,-1],R_des.T))
+                w = np.array([w_skew[2, 1], w_skew[0, 2], w_skew[1, 0]])
+                b_eq = -0.05*Ke*w
+                
+                A_eq = matrix(A_eq, tc  = 'd')
+                b_eq = matrix(b_eq, (3, 1))
+                
+                dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
+ 
+            x = joy.get_axis(0)
+            if (abs(x) < .2):
+                x = 0
+            else:
+                x = (abs(x) - .2) / .8 * cmp(x, 0)
+
+            # control of linear velocity
+            b1 = joy.get_button(0)
+            b2 = joy.get_button(1)
+            b3 = joy.get_button(2)
+
+            # control of angular velocity
+            b4 = joy.get_button(3)
+            b5 = joy.get_button(4)
+            b6 = joy.get_button(5)
+        
+            # emergency stop
+            b9 = joy.get_button(8)
+        
+            if (b9 == 1):
+                print 'robot stopped'
+                obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
+                obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
+      
+            button = [x, b1, b2, b3, b4, b5, b6]
+            func_xbox(button, obj)
+        
             # quadratic programming
             #options = octave.optimset('Display', 'off')
             
             #dq_sln = octave.quadprog(H,f,A,b,np.empty([3, 8]),np.empty([3, 1]),LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
             #dq_sln = octave.quadprog(H,f,A,b,A_eq,b_eq,LB,UB,np.vstack((obj.params['controls']['dq'],0,0)),options)
-            
-            """ """
-            solvers.options['show_progress'] = False
-            #solvers.options['maxiters'] = 500
-            #solvers.options['abstol'] = 1e-5
-            #solvers.options['feastol'] = 1e-5
-
-            #dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
-            sol = solvers.qp(H,f,A,b)
-            dq_sln = sol['x']
             
             # update joint velocities
             V_desired = obj.params['controls']['pos_v']
@@ -528,37 +580,7 @@ def main():
             else:
                 print 'Zero Velocity Occurs'
             """
-
-        x = joy.get_axis(0)
-        if (abs(x) < .2):
-            x = 0
-        else:
-            x = (abs(x) - .2) / .8 * cmp(x, 0)
-
-        # control of linear velocity
-        b1 = joy.get_button(0)
-        b2 = joy.get_button(1)
-        b3 = joy.get_button(2)
-
-        # control of angular velocity
-        b4 = joy.get_button(3)
-        b5 = joy.get_button(4)
-        b6 = joy.get_button(5)
-        
-        # emergency stop
-        b7 = joy.get_button(8)
-        
-        if (b7 == 1):
-            print 'robot stopped'
-            obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
-            obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
-      
-        button = [x, b1, b2, b3, b4, b5, b6]
-        func_xbox(button, obj)
-        
-        # Limit to 20 frames per second
-        #clock.tick(20)
-
+            
     pygame.quit()
 
 
@@ -581,8 +603,6 @@ def func_xbox(button, obj):
         obj.params['controls']['ang_v'] = quatmultiply(np.array([np.cos(obj.params['keyboard']['inc_ang_v']/2), 0, 0, button[0]*np.sin(obj.params['keyboard']['inc_ang_v']/2)]).reshape(1, 4), obj.params['controls']['ang_v'])
     
         
-
-
 if __name__ == '__main__':
     main()
     
