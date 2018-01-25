@@ -100,12 +100,8 @@ class CollisionChecker:
     
     urdf_folder = '/home/Shuyang/catkin_ws/src/irb6640/irb6640_description/urdf/'
     
-    names = ['irb6640_185_280_Testbed', 'Walls']
-    urdfs = ['irb6640_185_280_or', 'Walls_or']
-    
-    """ """
-    #names = ['irb6640_185_280_Testbed', 'Walls', 'box']
-    #urdfs = ['irb6640_185_280_or', 'Walls_or', 'box']
+    names = ['irb6640_185_280_Testbed', 'testbed']
+    urdfs = ['irb6640_185_280_or', 'testbed']
     
     model_urdf = {}
     for name, urdf in zip(names, urdfs):

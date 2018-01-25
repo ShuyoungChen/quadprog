@@ -154,7 +154,8 @@ def getJacobian(q,ttype,H,P,n):
     return J
 
 """ """
-def getJacobian3(q,ttype,H,P,n, Closest_Pt):
+# return jacobian of the closest point on panel  
+def getJacobian3(q,ttype,H,P,n, Closest_Pt, J2C_Joint):
     num_joints = len(q)
 
     P_0_i = np.zeros((3,num_joints+1))
@@ -172,9 +173,11 @@ def getJacobian3(q,ttype,H,P,n, Closest_Pt):
         if ttype[0][i] == 0:
             J[:,i] = np.hstack((np.dot(R_0_i[:,:,i],H[:,i]), np.dot(hat(np.dot(R_0_i[:,:,i], H[:,i])), (P_0_T - P_0_i[:,i]))))
     """ """
+    J[:,J2C_Joint:7] = 0
     
     return J
-        
+
+# return jacobian of the closest point on robot        
 def getJacobian2(q,ttype,H,P,n,Closest_Pt,J2C_Joint):
 
     num_joints = len(q)
@@ -367,17 +370,51 @@ def main():
             Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
             
             J2C_Joint = Joint2Collision(Closest_Pt, pp)
-     
-            J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
+            print Closest_Pt, J2C_Joint
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             
-            J_eef2 = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt)
+            if (J2C_Joint < 4):
+                J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
+            
+            else:            
+                J = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt,J2C_Joint)
+            
+            x = joy.get_axis(0)
+            if (abs(x) < .2):
+                x = 0
+            else:
+                x = (abs(x) - .2) / .8 * cmp(x, 0)
 
+            # control of linear velocity
+            b1 = joy.get_button(0)
+            b2 = joy.get_button(1)
+            b3 = joy.get_button(2)
+
+            # control of angular velocity
+            b4 = joy.get_button(3)
+            b5 = joy.get_button(4)
+            b6 = joy.get_button(5)
+        
+            # emergency stop
+            b9 = joy.get_button(8)
+        
+            if (b9 == 1):
+                print 'robot stopped'
+                obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
+                obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
+      
+            button = [x, b1, b2, b3, b4, b5, b6]
+            func_xbox(button, obj)
+            
+            # update joint velocities
             axang = quat2axang(obj.params['controls']['ang_v'])
 
             # desired rotational velocity
             vr = axang[3]*axang[0:3]
             
+            # desired linear velocity
+            V_desired = obj.params['controls']['pos_v']
+                        
             H = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
             f = getqp_f(obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             
@@ -410,10 +447,10 @@ def main():
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.005
+            h[12] = dist - 0.005 #0.005
             """ """ """ """
-            dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
-            #dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
+            #dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
+            dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
             
             sigma[0:12] =inequality_bound(h[0:12], c, eta, epsilon_in, E)
             sigma[12] = inequality_bound(h[12], c, eta, epsilon_in, E)           
@@ -442,6 +479,7 @@ def main():
                 print 'desired position set'
                 print 'desired position set'
             
+            # it seems that the equality constraints works better when close to the obstacle
             # equality constraints for maintaining end-effector position (pure rotation)    
             if (b7 == 1):
                 print 'pure rotational movement'
@@ -459,42 +497,12 @@ def main():
                 A_eq = np.hstack((J_eef[0:3,:], np.zeros((3, 2))))            
                 w_skew = logm(np.dot(RR[:,:,-1],R_des.T))
                 w = np.array([w_skew[2, 1], w_skew[0, 2], w_skew[1, 0]])
-                b_eq = -0.05*Ke*w
+                b_eq = -0.01*Ke*w
                 
                 A_eq = matrix(A_eq, tc  = 'd')
                 b_eq = matrix(b_eq, (3, 1))
                 
                 dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
- 
-            x = joy.get_axis(0)
-            if (abs(x) < .2):
-                x = 0
-            else:
-                x = (abs(x) - .2) / .8 * cmp(x, 0)
-
-            # control of linear velocity
-            b1 = joy.get_button(0)
-            b2 = joy.get_button(1)
-            b3 = joy.get_button(2)
-
-            # control of angular velocity
-            b4 = joy.get_button(3)
-            b5 = joy.get_button(4)
-            b6 = joy.get_button(5)
-        
-            # emergency stop
-            b9 = joy.get_button(8)
-        
-            if (b9 == 1):
-                print 'robot stopped'
-                obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
-                obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
-      
-            button = [x, b1, b2, b3, b4, b5, b6]
-            func_xbox(button, obj)
-        
-            # update joint velocities
-            V_desired = obj.params['controls']['pos_v']
             
             if len(dq_sln) < obj.params['defi']['n']:
                 obj.params['controls']['dq'] = np.zeros((6,1))
@@ -503,18 +511,19 @@ def main():
             else:
                 obj.params['controls']['dq'] = dq_sln[0: int(obj.params['defi']['n'])]
                 V_scaled = dq_sln[-1]*V_desired
+                vr_scaled = dq_sln[-2]*vr.reshape(3,1)
          
             V_linear = np.dot(J_eef[3:6,:], obj.params['controls']['dq'])
             V_rot = np.dot(J_eef[0:3,:], obj.params['controls']['dq'])
                            
-            print '------Desired linear velocity------'
+            print '------Scaled desired linear velocity------'
             print V_scaled
                        
             print '------Real linear velocity by solving quadratic programming------'
             print V_linear
             
-            print '------Desired angular velocity------'
-            print vr.reshape(3,1)
+            print '------Scaled desired angular velocity------'
+            print vr_scaled
             
             print '------Real angular velocity by solving quadratic programming------'
             print V_rot
