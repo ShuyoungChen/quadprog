@@ -1,0 +1,9 @@
+service OpenRAVE_rr
+
+option version 0.8
+
+object OpenRAVEObject
+  
+    function double[] CollisionReport(double q1, double q2,double q3,double q4,double q5,double q6)
+    
+end object
