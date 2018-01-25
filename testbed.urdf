@@ -20,7 +20,7 @@
   <joint name="joint" type="fixed">
     <parent link="world"/>
     <child link="testbed"/>
-    <origin rpy="0 0 -1.57" xyz="1.0 -0.94 0.32"/>
+    <origin rpy="0 0 -1.57" xyz="4.0 3.0 0"/>
   </joint>
   
   <gazebo>

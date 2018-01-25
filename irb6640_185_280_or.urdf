@@ -88,12 +88,12 @@
   <link name="link_6">
     <collision name="collision">
       <geometry>
-        <mesh filename="package://abb_irb6640_support/meshes/irb6640_185_280/collision/tool1.stl"/>
+        <mesh filename="package://abb_irb6640_support/meshes/irb6640_185_280/collision/link_6.stl"/>
       </geometry>
     </collision>
     <visual name="visual">
       <geometry>
-        <mesh filename="package://abb_irb6640_support/meshes/irb6640_185_280/collision/tool1.stl"/>
+        <mesh filename="package://abb_irb6640_support/meshes/irb6640_185_280/collision/link_6.stl"/>
       </geometry>
       <material name="yellow"/>
     </visual>
@@ -115,13 +115,13 @@
       <collision name="collision">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://irb6640_gazebo/models/vacuum_gripper.stl"/>
+          <mesh filename="package://irb6640_gazebo/models/vacuum_gripper.stl" scale="1.254 1.254 1.254"/>
         </geometry>
       </collision>
       <visual name="visual">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://irb6640_gazebo/models/vacuum_gripper.stl"/>
+          <mesh filename="package://irb6640_gazebo/models/vacuum_gripper.stl" scale="1.254 1.254 1.254"/>
         </geometry>
       </visual>
   </link>
@@ -191,7 +191,7 @@
     <limit effort="0" lower="-2.094" upper="2.094" velocity="2.4435"/>
   </joint>
   <joint name="joint_6" type="revolute">
-    <origin rpy="0 0 0" xyz="0.15 0 0"/>
+    <origin rpy="0 0 0" xyz="0.2 0 0"/>
     <axis xyz="1 0 0"/>
     <parent link="link_5"/>
     <child link="link_6"/>
@@ -210,7 +210,7 @@
   <joint name="link_6_vacuum_gripper" type="fixed">
       <parent link="link_6"/>
       <child link="vacuum_gripper"/>
-      <origin rpy="0 -1.57079632679 0" xyz="0.25 0 0"/>
+      <origin rpy="0 -1.57079632679 0" xyz="0.15 0 0"/>
       <limit effort="30" velocity="1.0" lower="0" upper="0" />
   </joint>
   <joint name="joint_cylinder" type="continuous">
