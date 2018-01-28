@@ -1,11 +1,11 @@
 
 class ControlParams:
   
-    def __init__(self,ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v, w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds):
-        self.params = self.ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v,w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds)
+    def __init__(self,ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v, w_t,v_t,epsilon,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds):
+        self.params = self.ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v,w_t,v_t,epsilon,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds)
     
         
-    def ControlParams(self, ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v,w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds):
+    def ControlParams(self, ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v,w_t,v_t,epsilon,inc_pos_v,inc_ang_v,stop,er,ep,upper_dq_bounds):
             defi = {}
             controls = {}
             plots = {}
@@ -31,9 +31,6 @@ class ControlParams:
             controls['v_t'] = v_t
             controls['epsilon'] = epsilon
             controls['stop'] = stop
-            
-            plots['view_port'] = view_port
-            plots['axes_lim'] = axes_lim
             
             keyboard['inc_pos_v'] = inc_pos_v 
             keyboard['inc_ang_v'] = inc_ang_v 

@@ -24,7 +24,7 @@ def robotParams():
     h4 = ex
     h5 = ey
     h6 = ex
-    P = np.array([[0,0,0], [0.32, 0, 0.78], [0, 0, 1.075], [0, 0, 0.2], [1.142, 0, 0], [0.2, 0, 0], [0.2,0,0]]).T
+    P = np.array([[0,0,0], [0.32, 0, 0.78], [0, 0, 1.075], [0, 0, 0.2], [1.142, 0, 0], [0.2, 0, 0], [0.01,0,0]]).T
     q = np.zeros((6, 1))
     H = np.array([h1, h2, h3, h4, h5, h6]).T
     ttype = np.zeros((1, 6))
@@ -40,11 +40,12 @@ def fwdkin(q,ttype,H,P,n):
     p=np.zeros((3,1))
     
     for i in range(n):        
-        h_i = H[:,i]
-        Ri=np.eye(3)
+        h_i = H[0:3,i].reshape(3, 1)
+        Ri = np.eye(3)
+        
         if ttype[0][i] == 0: 
             #rev
-            pi = P[:,i].reshape(3, 1)
+            pi = P[0:3,i].reshape(3, 1)
             p = p+np.dot(R, pi)
             Ri = rot(h_i,q[i])
             R = np.dot(R, Ri)
@@ -73,7 +74,7 @@ def Closest_Rotation(R):
 # ROT Rotate along an axis h by q in radius
 def rot(h, q):
     h=h/norm(h)
-    R = np.eye(3) + np.sin(q)*hat(h) + (1 - np.cos(q))*hat(h)**2
+    R = np.eye(3) + np.sin(q)*hat(h) + (1 - np.cos(q))*np.dot(hat(h), hat(h))
     
     return R
 
@@ -87,13 +88,13 @@ def fwdkin_alljoints(q, ttype, H, P, n):
     p=np.zeros((3,1))
     RR = np.zeros((3,3,n+1))
     pp = np.zeros((3,n+1))
-
+    
     for i in range(n):
-        h_i = H[:,i] 
-         
+        h_i = H[0:3,i]
+       
         if ttype[0][i] == 0:
         #rev
-            pi = P[:,i].reshape(3, 1)
+            pi = P[0:3,i].reshape(3, 1)
             p = p+np.dot(R,pi)
             Ri = rot(h_i,q[i])
             R = np.dot(R,Ri)
@@ -106,13 +107,13 @@ def fwdkin_alljoints(q, ttype, H, P, n):
 	    # default pris
 	        pi = (P[:,i]+q[i]*h_i).reshape(3, 1)
 	        p = p+np.dot(R,pi)
- 
-        pp[:,i] = p.ravel()
+        
+        pp[:,[i]] = p
         RR[:,:,i] = R
     
     # end effector T
     p=p+np.dot(R, P[0:3,n].reshape(3, 1))
-    pp[:,n] = p.ravel()
+    pp[:,[n]] = p
     RR[:,:,n] = R
     
     return pp, RR
@@ -173,7 +174,7 @@ def getJacobian3(q,ttype,H,P,n, Closest_Pt, J2C_Joint):
         if ttype[0][i] == 0:
             J[:,i] = np.hstack((np.dot(R_0_i[:,:,i],H[:,i]), np.dot(hat(np.dot(R_0_i[:,:,i], H[:,i])), (P_0_T - P_0_i[:,i]))))
     """ """
-    J[:,J2C_Joint:7] = 0
+    #J[:,J2C_Joint:7] = 0
     
     return J
 
@@ -261,6 +262,7 @@ def main():
     #Init the joystick
     pygame.init()
     pygame.joystick.init()
+
     joy=pygame.joystick.Joystick(0)
     joy.init()
     clock=pygame.time.Clock()
@@ -269,18 +271,18 @@ def main():
 
     OpenRAVE_obj = OpenRAVEObject()
 
-# Initialize Robot Parameters    
+    # Initialize Robot Parameters    
     ex,ey,ez,n,P,q_ver,H,ttype,dq_bounds = robotParams()
 
-# Initialize Control Parameters
-# initial joint angles
+    # Initialize Control Parameters
+    # initial joint angles
     
     """ """
     #q = np.zeros((6, 1))
     q = np.array([0,0,0,0,np.pi/2,0]).reshape(6, 1)
-    
+
     R,pos = fwdkin(q,ttype,H,P,n)
- 
+
     orien = Quaternion(matrix=R)
     orien = np.array([orien[0], orien[1], orien[2], orien[3]]).reshape(1, 4)
 
@@ -297,12 +299,6 @@ def main():
     sigma = np.zeros((13, 1))
     dhdq = np.vstack((np.hstack((np.eye(6), np.zeros((6, 1)), np.zeros((6, 1)))), np.hstack((-np.eye(6), np.zeros((6, 1)), np.zeros((6, 1)))), np.zeros((1, 8))))
 
-    """be careful of dimension here"""
-    view_port = np.array([-30, 30])
-    
-    # plot options
-    axes_lim = np.array([-1.5, 3.2, -1.5, 3.2, -1.5, 3.2])
-    
     # velocities
     w_t = np.zeros((3, 1))
     v_t = np.zeros((3, 1))
@@ -320,13 +316,13 @@ def main():
     # parameters for inequality constraints
     c = 0.5
     eta = 0.1
-    epsilon_in = 0.1
+    epsilon_in = 0.15
     E = 0.01
     
     Ke = 1
     
     # create a handle of these parameters for interactive modifications
-    obj = ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v.reshape(1, 4),w_t,v_t,epsilon,view_port,axes_lim,inc_pos_v,inc_ang_v,0,er,ep,0)
+    obj = ControlParams(ex,ey,ez,n,P,H,ttype,dq_bounds,q,dq,pos,orien,pos_v,ang_v.reshape(1, 4),w_t,v_t,epsilon,inc_pos_v,inc_ang_v,0,er,ep,0)
 
     dt = 0
     counter = 0
@@ -358,8 +354,8 @@ def main():
                 egm.send_to_robot([float(x)*180/np.pi for x in obj.params['controls']['q']])
                 print "Target Joints: " + str([float(x)*180/np.pi for x in obj.params['controls']['q']])
 
-            [pp,RR]=fwdkin_alljoints(obj.params['controls']['q'],ttype,H,P,n)
-
+            pp,RR = fwdkin_alljoints(obj.params['controls']['q'],ttype,obj.params['defi']['H'],obj.params['defi']['P'],obj.params['defi']['n'])
+            
             # parameters for qp
             obj.params['controls']['pos'] = pp[:, -1]
 
@@ -370,14 +366,28 @@ def main():
             Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
             
             J2C_Joint = Joint2Collision(Closest_Pt, pp)
-            print Closest_Pt, J2C_Joint
+            
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             
-            if (J2C_Joint < 4):
+            v_tmp = Closest_Pt-obj.params['controls']['pos']
+            #print Closest_Pt
+            #print obj.params['controls']['pos']
+            #print norm(v_tmp)
+            
+            # determine if the closest point is on the panel
+            if (norm(v_tmp) < 1.45 and v_tmp[2] < 0):
+                print '---the closest point is on the panel---'
+                #print J2C_Joint
+                J2C_Joint = 6
+                J = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt,J2C_Joint)
+                #J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
+                
+            #if (J2C_Joint < 4):
+            else:
                 J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
             
-            else:            
-                J = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt,J2C_Joint)
+            #else:            
+             #   J = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt,J2C_Joint)
             
             x = joy.get_axis(0)
             if (abs(x) < .2):
@@ -415,10 +425,11 @@ def main():
             # desired linear velocity
             V_desired = obj.params['controls']['pos_v']
                         
-            H = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
+            Q = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
+
             f = getqp_f(obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             
-            H = matrix(H, tc='d')
+            Q = matrix(Q, tc='d')
             f = matrix(f, tc='d')
             
             # bounds for qp
@@ -447,7 +458,7 @@ def main():
             der = np.array([dx*(dx**2 + dy**2 + dz**2)**(-0.5), dy*(dx**2 + dy**2 + dz**2)**(-0.5), dz*(dx**2 + dy**2 + dz**2)**(-0.5)])
 
             """ """
-            h[12] = dist - 0.005 #0.005
+            h[12] = dist - 0.05
             """ """ """ """
             #dhdq[12, 0:6] = np.dot(-der.reshape(1, 3), J_eef2[3:6,:])
             dhdq[12, 0:6] = np.dot(-der[None, :], J[3:6,:])
@@ -466,7 +477,7 @@ def main():
             
             solvers.options['show_progress'] = False
             
-            sol = solvers.qp(H,f,A,b)
+            sol = solvers.qp(Q,f,A,b)
             dq_sln = sol['x']
             
             b7 = joy.get_button(6)
@@ -489,7 +500,7 @@ def main():
                 A_eq_pos = matrix(A_eq_pos, tc  = 'd')
                 b_eq_pos = matrix(b_eq_pos, (3, 1))
                 
-                dq_sln = solvers.qp(H,f,A,b,A_eq_pos,b_eq_pos)['x']
+                dq_sln = solvers.qp(Q,f,A,b,A_eq_pos,b_eq_pos)['x']
                 
             # equality constraints for maintaining end-effector orientation (pure translation)
             if (b8 == 1):
@@ -497,12 +508,12 @@ def main():
                 A_eq = np.hstack((J_eef[0:3,:], np.zeros((3, 2))))            
                 w_skew = logm(np.dot(RR[:,:,-1],R_des.T))
                 w = np.array([w_skew[2, 1], w_skew[0, 2], w_skew[1, 0]])
-                b_eq = -0.01*Ke*w
+                b_eq = -0.05*Ke*w
                 
                 A_eq = matrix(A_eq, tc  = 'd')
                 b_eq = matrix(b_eq, (3, 1))
                 
-                dq_sln = solvers.qp(H,f,A,b,A_eq,b_eq)['x']
+                dq_sln = solvers.qp(Q,f,A,b,A_eq,b_eq)['x']
             
             if len(dq_sln) < obj.params['defi']['n']:
                 obj.params['controls']['dq'] = np.zeros((6,1))
@@ -532,7 +543,7 @@ def main():
 
 
 def func_xbox(button, obj):
-
+    # vx, vy, vz
     if (button[1] == 1):
         obj.params['controls']['pos_v'] = obj.params['controls']['pos_v'] + np.matrix([button[0]*obj.params['keyboard']['inc_pos_v'],0,0]).T
     if (button[2] == 1):
