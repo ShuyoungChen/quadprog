@@ -24,7 +24,7 @@ def robotParams():
     h4 = ex
     h5 = ey
     h6 = ex
-    P = np.array([[0,0,0], [0.32, 0, 0.78], [0, 0, 1.075], [0, 0, 0.2], [1.142, 0, 0], [0.2, 0, 0], [0.01,0,0]]).T
+    P = np.array([[0,0,0], [0.32, 0, 0.78], [0, 0, 1.075], [0, 0, 0.2], [1.142, 0, 0], [0.2, 0, 0], [0,0,0]]).T
     q = np.zeros((6, 1))
     H = np.array([h1, h2, h3, h4, h5, h6]).T
     ttype = np.zeros((1, 6))
@@ -121,7 +121,7 @@ def fwdkin_alljoints(q, ttype, H, P, n):
 def Joint2Collision(Closest_Pt,pp):
     link_dist = []
 
-    for i in range(6):
+    for i in range(5):
         link = pp[:,i+1]-pp[:,i]
         link = link/norm(link)
         pp2c = Closest_Pt - pp[:,i]
@@ -173,8 +173,6 @@ def getJacobian3(q,ttype,H,P,n, Closest_Pt, J2C_Joint):
     for i in range(num_joints):
         if ttype[0][i] == 0:
             J[:,i] = np.hstack((np.dot(R_0_i[:,:,i],H[:,i]), np.dot(hat(np.dot(R_0_i[:,:,i], H[:,i])), (P_0_T - P_0_i[:,i]))))
-    """ """
-    #J[:,J2C_Joint:7] = 0
     
     return J
 
@@ -317,7 +315,7 @@ def main():
     c = 0.5
     eta = 0.1
     epsilon_in = 0.15
-    E = 0.01
+    E = 0.005
     
     Ke = 1
     
@@ -336,7 +334,7 @@ def main():
         if counter != 0:
             toc = timeit.default_timer()
             dt = toc - tic
-            
+
         tic = timeit.default_timer()
 
         counter = counter + 1
@@ -362,22 +360,27 @@ def main():
             orien_tmp = Quaternion(matrix=RR[:, :, -1])
             obj.params['controls']['orien'] = np.array([orien_tmp[0], orien_tmp[1], orien_tmp[2], orien_tmp[3]]).reshape(1, 4)
             
-            """ """
-            Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
+            stop, Closest_Pt, Closest_Pt_env = OpenRAVE_obj.CollisionReport(obj.params['controls']['q'][0],obj.params['controls']['q'][1],obj.params['controls']['q'][2],obj.params['controls']['q'][3],obj.params['controls']['q'][4],obj.params['controls']['q'][5])
+            
+            # check self-collision
+            if (stop):
+                print 'robot is about to self-collide, robot stopped.'
+                obj.params['controls']['pos_v'] = np.array([0,0,0]).reshape(3, 1)
+                obj.params['controls']['ang_v'] = np.array([1,0,0,0]).reshape(1, 4)
             
             J2C_Joint = Joint2Collision(Closest_Pt, pp)
             
             J_eef = getJacobian(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'])
             
             v_tmp = Closest_Pt-obj.params['controls']['pos']
-            #print Closest_Pt
-            #print obj.params['controls']['pos']
-            #print norm(v_tmp)
+            
+            v_tmp2 = (pp[:, -1] - pp[:, -3]) 
+            p_norm2 = norm(v_tmp2)
+            v_tmp2 = v_tmp2/p_norm2
             
             # determine if the closest point is on the panel
-            if (norm(v_tmp) < 1.45 and v_tmp[2] < 0):
+            if (norm(v_tmp) < 1.5 and np.arccos(np.inner(v_tmp, v_tmp2)/norm(v_tmp))*180/np.pi < 95):
                 print '---the closest point is on the panel---'
-                #print J2C_Joint
                 J2C_Joint = 6
                 J = getJacobian3(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'], Closest_Pt,J2C_Joint)
                 #J,p_0_tmp = getJacobian2(obj.params['controls']['q'], obj.params['defi']['ttype'], obj.params['defi']['H'], obj.params['defi']['P'], obj.params['defi']['n'],Closest_Pt,J2C_Joint)
