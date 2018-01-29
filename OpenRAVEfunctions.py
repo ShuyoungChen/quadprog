@@ -172,11 +172,18 @@ class CollisionChecker:
     ClosestPosition = [0,0]
     ContactCnt = 0
     minDistance = np.infty
+    stop = False
     
     with self.env:
       for poi in collision_poi:
         #for bkg in background + ['floor']:
         for bkg in background:
+          # check self-collision
+          if self.bodies[poi].CheckSelfCollision(report=report):
+          #if self.env.CheckCollision(link1=self.bodies[poi], link2=self.bodies[poi], report=report):
+            #if (report.minDistance < 0.1):
+            #print 'self collision happens'
+            stop = True
           # return True if collision happens
           if self.env.CheckCollision(link1=self.bodies[poi], link2=self.bodies[bkg], report=report):
             return False, report.minDistance
@@ -202,7 +209,7 @@ class CollisionChecker:
     """
           
     """ """           
-    return True, minDistance, ClosestPosition, ClosestPosition_env, ContactCnt
+    return True, stop, minDistance, ClosestPosition, ClosestPosition_env, ContactCnt
     
 
 _EPS = np.finfo(float).eps * 4.0

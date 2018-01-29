@@ -44,7 +44,7 @@ class OpenRAVEObject(object):
              
              tmp_result = self.cc.check_safety(collision_poi, collision_env, joints)
              
-             return tmp_result[2], tmp_result[3]
+             return tmp_result[1], tmp_result[3], tmp_result[4]
      
 
 	
