@@ -6,6 +6,10 @@ import math
 from openravepy import *
 import rospy
 from openravepy.misc import *
+import rospkg
+import os
+import xacro
+import json
 
 def rotx(theta):
   M = np.matrix([[1,0,0], [0, np.cos(theta), -np.sin(theta)], [0, np.sin(theta), np.cos(theta)]])
@@ -82,6 +86,16 @@ def FK_Matrix2(J):
   return np.dot(translation_matrix(p0T.flatten().tolist()[0]), np.r_[np.c_[R06,[0,0,0]],np.array([0,0,0,1]).reshape(1,4)].tolist())
 
 
+def _load_xacro(module, package, fname):
+  rospack = rospkg.RosPack()
+  package_path=rospack.get_path(package)
+  
+  fname2 = os.path.join(package_path, 'urdf', fname + '.xacro')
+  urdf_text = xacro.process_file(fname2).toprettyxml(indent='  ')
+  urdf_json_dict = {'urdf': urdf_text}
+  urdf_json = json.dumps(urdf_json_dict)
+  return module.SendCommand('LoadString ' + urdf_json)
+
 class CollisionChecker:
 
   def __init__(self, gui=False):
@@ -97,19 +111,21 @@ class CollisionChecker:
 
     self.bodies = {}
     self.joints = {}
-    
-    urdf_folder = '/home/Shuyang/catkin_ws/src/irb6640/irb6640_description/urdf/'
-    
+       
     names = ['irb6640_185_280_Testbed', 'testbed']
-    urdfs = ['irb6640_185_280_or', 'testbed']
+    urdfs = ['irb6640_180_255_with_vacuum_gripper', 'testbed_walls']
+    urdf_packages = ['rpi_arm_composites_manufacturing_testbed', 'rpi_arm_composites_manufacturing_testbed']
     
     model_urdf = {}
-    for name, urdf in zip(names, urdfs):
+    model_urdf_package = {}
+    for name, urdf, package in zip(names, urdfs, urdf_packages):
       model_urdf[name] = urdf
+      model_urdf_package[name] = package
 
     with self.env:
       for name in model_urdf:
         urdf = model_urdf[name]
+        urdf_package = model_urdf_package[name]
         if urdf == 'box':
           body = RaveCreateKinBody(self.env, '')
           body.SetName(name)
@@ -122,7 +138,7 @@ class CollisionChecker:
           body.InitFromSpheres(np.array([[0, 0, 0, 0.2]]), True) #0.6096, 0.01524, 0.3048
           
         else:
-          body = self.env.GetKinBody(module.SendCommand('LoadURI '+urdf_folder+urdf+'.urdf'))
+          body = self.env.GetKinBody(_load_xacro(module, urdf_package, urdf))
           
         self.env.AddKinBody(body)
         self.bodies[name] = body
