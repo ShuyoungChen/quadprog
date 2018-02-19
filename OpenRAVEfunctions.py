@@ -192,14 +192,15 @@ class CollisionChecker:
     
     with self.env:
       for poi in collision_poi:
+        # check self-collision
+        if self.bodies[poi].CheckSelfCollision(report=report):
+          stop = True
         #for bkg in background + ['floor']:
         for bkg in background:
-          # check self-collision
-          if self.bodies[poi].CheckSelfCollision(report=report):
+          # slow if computing the minimum distance
           #if self.env.CheckCollision(link1=self.bodies[poi], link2=self.bodies[poi], report=report):
             #if (report.minDistance < 0.1):
             #print 'self collision happens'
-            stop = True
           # return True if collision happens
           if self.env.CheckCollision(link1=self.bodies[poi], link2=self.bodies[bkg], report=report):
             return False, report.minDistance
