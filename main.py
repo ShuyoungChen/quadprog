@@ -429,7 +429,10 @@ def main():
             V_desired = obj.params['controls']['pos_v']
                         
             Q = getqp_H(obj.params['controls']['dq'], J_eef, vr.reshape(3, 1), obj.params['controls']['pos_v'], obj.params['opt']['er'], obj.params['opt']['ep']) 
-
+            
+            # make sure Q is symmetric
+            Q = 0.5*(Q + Q.T)
+            
             f = getqp_f(obj.params['controls']['dq'],obj.params['opt']['er'], obj.params['opt']['ep'])
             
             Q = matrix(Q, tc='d')
@@ -541,7 +544,7 @@ def main():
             
             print '------Real angular velocity by solving quadratic programming------'
             print V_rot
-           
+
     pygame.quit()
 
 
